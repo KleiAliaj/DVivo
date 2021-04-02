@@ -1,0 +1,79 @@
+image: node:14-buster
+
+stages:
+  - prepare
+  - test
+  - build
+  - deploy
+
+# Cache modules in between jobs
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .npm/
+
+before_script:
+  - npm ci --cache .npm --prefer-offline
+  - npm install
+
+prepare_cache:
+  stage: prepare
+  script:
+    - echo "Hello Crispy!"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+
+unit_tests:
+  stage: test
+  needs: ["prepare_cache"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - npm run test
+  artifacts:
+    reports:
+      junit: junit.xml
+      cobertura: coverage/cobertura-coverage.xml
+
+type_check:
+  stage: test
+  needs: ["prepare_cache"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - npm run type-check
+
+lint:
+  stage: test
+  needs: ["prepare_cache"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - npm run lint
+
+build_production:
+  stage: build
+  needs: ["prepare_cache"]
+  script:
+    - NODE_ENV='production' npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 60 secs
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+# Trick to use GitLab's Pages feature.
+pages:
+  stage: deploy
+  needs: ["prepare_cache"]
+  script:
+    - NODE_ENV='staging' npm run build
+  artifacts:
+    paths:
+      - public/
+    expire_in: 60 secs
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'

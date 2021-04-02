@@ -5,6 +5,5 @@
  */
 
 module.exports = {
-  /* Your site config here */
-  plugins: [],
+  pathPrefix: (process.env.NODE_ENV === 'staging') ? '/frontend-framework-team/boilerplate-gatsby' : undefined,
 };
